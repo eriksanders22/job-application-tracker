@@ -1,0 +1,16 @@
+
+> job-application-email-tracker@0.1.0 dev
+> next dev
+
+   ▲ Next.js 15.5.19
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.0.109:3000
+
+ ✓ Starting...
+ ✓ Ready in 1008ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1319ms (538 modules)
+ GET / 200 in 1503ms
+ GET / 200 in 58ms
+ ✓ Compiled in 83ms (311 modules)
+ ✓ Compiled in 51ms (311 modules)

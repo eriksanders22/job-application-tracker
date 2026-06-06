@@ -1,0 +1,47 @@
+import { NextResponse } from "next/server";
+import { auth } from "../../../lib/auth";
+import { prisma } from "../../../lib/prisma";
+
+export async function GET() {
+  const session = await auth();
+
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email }
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  const applications = await prisma.jobApplication.findMany({
+    where: { userId: user.id },
+    orderBy: { lastEmailDate: "desc" },
+    include: {
+      emails: {
+        orderBy: { receivedAt: "desc" },
+        take: 1
+      },
+      todos: {
+        orderBy: { createdAt: "asc" },
+        take: 1
+      }
+    }
+  });
+
+  return NextResponse.json(
+    applications.map((application) => ({
+      id: application.id,
+      company: application.company,
+      role: application.role,
+      status: application.status,
+      lastEmailDate: application.lastEmailDate.toISOString().slice(0, 10),
+      confidenceScore: application.confidenceScore,
+      emailSnippet: application.emails[0]?.snippet ?? "",
+      todo: application.todos[0]?.task ?? ""
+    }))
+  );
+}

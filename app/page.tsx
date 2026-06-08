@@ -4,6 +4,7 @@ import { ApplicationTable } from "../components/ApplicationTable";
 import { SessionSummary } from "../components/SessionSummary";
 import { StatusSummary } from "../components/StatusSummary";
 import { SyncGmailButton } from "../components/SyncGmailButton";
+import { PreviewSyncPanel } from "../components/PreviewSyncPanel";
 import { auth } from "../lib/auth";
 import {
   countApplicationsByStatus,
@@ -76,6 +77,7 @@ export default async function DashboardPage() {
 
       <SessionSummary session={session} />
       <SyncGmailButton />
+      <PreviewSyncPanel />
       <StatusSummary cards={summaryCards} />
       <ApplicationTable
         applications={applications}

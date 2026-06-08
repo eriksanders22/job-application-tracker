@@ -1,37 +1,11 @@
 import { NextResponse } from "next/server";
 import { auth } from "../../../../lib/auth";
-import { classifyJobEmail } from "../../../../lib/classifier";
+import { filterJobApplicationEmail } from "../../../../lib/classifier";
 import {
   createGmailClient,
   fetchRecentJobMessageSummaries
 } from "../../../../lib/gmail";
 import { prisma } from "../../../../lib/prisma";
-import type {
-  ApplicationStatus,
-  EmailClassification
-} from "../../../../types/application";
-
-function inferCompany(fromEmail: string) {
-  const emailMatch = fromEmail.match(/<([^>]+)>/);
-  const email = emailMatch?.[1] ?? fromEmail;
-  const domain = email.split("@")[1]?.split(".")[0];
-
-  if (!domain) {
-    return "Unknown Company";
-  }
-
-  return domain
-    .split(/[-_]/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function inferRole(subject: string) {
-  const roleMatch = subject.match(/(?:for|your)\s+(.+?)(?:\s+application|$)/i);
-
-  return roleMatch?.[1]?.trim() || "Unknown Role";
-}
 
 export async function POST() {
   const session = await auth();
@@ -79,121 +53,81 @@ export async function POST() {
     expires_at: googleAccount.expires_at
   });
   const messages = await fetchRecentJobMessageSummaries(gmail);
-  const classificationCounts: Record<EmailClassification, number> = {
-    needs_action: 0,
-    rejected: 0,
-    waiting: 0,
-    other: 0
-  };
-  let applicationsCreated = 0;
-  let applicationsUpdated = 0;
-  let todosCreated = 0;
+  let savedJobApplicationEmails = 0;
+  let skippedEmails = 0;
 
   for (const message of messages) {
-    const classificationText = [
-      message.subject,
-      message.fromEmail,
-      message.snippet,
-      message.bodyText
-    ]
-      .filter(Boolean)
-      .join("\n\n");
-    const classification = classifyJobEmail(classificationText);
-    classificationCounts[classification.status] += 1;
-    const company = inferCompany(message.fromEmail);
-    const role = inferRole(message.subject);
-    const existingEmail = await prisma.jobEmail.findUnique({
-      where: { gmailMessageId: message.gmailMessageId },
-      select: { applicationId: true }
+    const filterResult = filterJobApplicationEmail({
+      subject: message.subject,
+      fromEmail: message.fromEmail,
+      fromName: message.fromName,
+      snippet: message.snippet,
+      bodyText: message.bodyText
     });
-    let applicationId = existingEmail?.applicationId ?? null;
 
-    if (classification.status === "other") {
-      await prisma.jobEmail.upsert({
-        where: { gmailMessageId: message.gmailMessageId },
-        update: {
-          fromEmail: message.fromEmail,
-          subject: message.subject,
-          snippet: message.snippet,
-          bodyPreview: message.bodyPreview,
-          receivedAt: message.receivedAt,
-          classification: classification.status,
-          classificationReason: classification.reason
-        },
-        create: {
-          userId: user.id,
-          applicationId: null,
-          gmailMessageId: message.gmailMessageId,
-          threadId: message.threadId,
-          fromEmail: message.fromEmail,
-          subject: message.subject,
-          snippet: message.snippet,
-          bodyPreview: message.bodyPreview,
-          receivedAt: message.receivedAt,
-          classification: classification.status,
-          classificationReason: classification.reason
-        }
-      });
+    console.info("Gmail filter result", {
+      subject: message.subject,
+      saved: filterResult.isJobApplicationEmail,
+      matchedSubjectPhrases: filterResult.matchedSubjectPhrases,
+      matchedStrongPhrases: filterResult.matchedStrongPhrases,
+      excludedPhrases: filterResult.excludedPhrases
+    });
+
+    if (!filterResult.isJobApplicationEmail) {
+      skippedEmails += 1;
       continue;
     }
 
-    if (!applicationId) {
-      const existingApplication = await prisma.jobApplication.findFirst({
-        where: {
-          userId: user.id,
-          company,
-          role
-        }
-      });
-
-      const application =
-        existingApplication ??
-        (await prisma.jobApplication.create({
-          data: {
-            userId: user.id,
-            company,
-            role,
-            status: classification.status,
-            lastEmailDate: message.receivedAt,
-            confidenceScore: classification.confidenceScore
-          }
-        }));
-
-      if (existingApplication) {
-        applicationsUpdated += 1;
-      } else {
-        applicationsCreated += 1;
-      }
-
-      applicationId = application.id;
-    } else {
-      applicationsUpdated += 1;
-    }
-
-    await prisma.jobApplication.update({
-      where: { id: applicationId },
-      data: {
-        status: classification.status as ApplicationStatus,
+    const application = await prisma.jobApplication.upsert({
+      where: { id: `gmail-${message.gmailMessageId}` },
+      update: {
+        role: message.subject || "Unknown Role",
+        status: "waiting",
         lastEmailDate: message.receivedAt,
-        confidenceScore: classification.confidenceScore
+        confidenceScore: 0
+      },
+      create: {
+        id: `gmail-${message.gmailMessageId}`,
+        userId: user.id,
+        company: "Unknown Company",
+        role: message.subject || "Unknown Role",
+        status: "waiting",
+        lastEmailDate: message.receivedAt,
+        confidenceScore: 0
       }
     });
 
     await prisma.jobEmail.upsert({
       where: { gmailMessageId: message.gmailMessageId },
       update: {
-        applicationId,
+        applicationId: application.id,
         fromEmail: message.fromEmail,
         subject: message.subject,
         snippet: message.snippet,
         bodyPreview: message.bodyPreview,
         receivedAt: message.receivedAt,
-        classification: classification.status,
-        classificationReason: classification.reason
+        classification: "unclassified",
+        classificationSource: "simple_phrase_filter",
+        classificationReason: filterResult.filterReason,
+        matchedPhrase:
+          filterResult.matchedSubjectPhrases[0] ??
+          filterResult.matchedStrongPhrases[0] ??
+          null,
+        matchedJobRules: [
+          ...filterResult.matchedSubjectPhrases.map(
+            (phrase) => `subject: ${phrase}`
+          ),
+          ...filterResult.matchedStrongPhrases.map(
+            (phrase) => `strong: ${phrase}`
+          )
+        ].join(", "),
+        matchedStatusRule: null,
+        jobRelatedScore: null,
+        confidenceScore: null
       },
       create: {
         userId: user.id,
-        applicationId,
+        applicationId: application.id,
         gmailMessageId: message.gmailMessageId,
         threadId: message.threadId,
         fromEmail: message.fromEmail,
@@ -201,49 +135,39 @@ export async function POST() {
         snippet: message.snippet,
         bodyPreview: message.bodyPreview,
         receivedAt: message.receivedAt,
-        classification: classification.status,
-        classificationReason: classification.reason
+        classification: "unclassified",
+        classificationSource: "simple_phrase_filter",
+        classificationReason: filterResult.filterReason,
+        matchedPhrase:
+          filterResult.matchedSubjectPhrases[0] ??
+          filterResult.matchedStrongPhrases[0] ??
+          null,
+        matchedJobRules: [
+          ...filterResult.matchedSubjectPhrases.map(
+            (phrase) => `subject: ${phrase}`
+          ),
+          ...filterResult.matchedStrongPhrases.map(
+            (phrase) => `strong: ${phrase}`
+          )
+        ].join(", "),
+        matchedStatusRule: null,
+        jobRelatedScore: null,
+        confidenceScore: null
       }
     });
 
-    if (classification.status === "needs_action" && classification.todo) {
-      const existingTodo = await prisma.todo.findFirst({
-        where: {
-          userId: user.id,
-          applicationId,
-          task: classification.todo
-        }
-      });
-
-      if (!existingTodo) {
-        await prisma.todo.create({
-          data: {
-            userId: user.id,
-            applicationId,
-            task: classification.todo
-          }
-        });
-        todosCreated += 1;
-      }
-    }
+    savedJobApplicationEmails += 1;
   }
 
   console.info("Gmail sync summary", {
-    totalMessages: messages.length,
-    rejected: classificationCounts.rejected,
-    needsAction: classificationCounts.needs_action,
-    waiting: classificationCounts.waiting,
-    other: classificationCounts.other,
-    applicationsCreated,
-    applicationsUpdated
+    totalFetched: messages.length,
+    savedJobApplicationEmails,
+    skippedEmails
   });
 
   return NextResponse.json({
-    syncedMessages: messages.length,
-    applicationsChanged: applicationsCreated + applicationsUpdated,
-    applicationsCreated,
-    applicationsUpdated,
-    ignoredMessages: classificationCounts.other,
-    todosCreated
+    totalFetched: messages.length,
+    savedJobApplicationEmails,
+    skippedEmails
   });
 }

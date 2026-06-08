@@ -39,9 +39,13 @@ export async function GET() {
       role: application.role,
       status: application.status,
       lastEmailDate: application.lastEmailDate.toISOString().slice(0, 10),
-      confidenceScore: application.confidenceScore,
+      sender: application.emails[0]?.fromEmail ?? "",
+      subject: application.emails[0]?.subject ?? application.role,
       emailSnippet: application.emails[0]?.snippet ?? "",
-      todo: application.todos[0]?.task ?? ""
+      bodyPreview: application.emails[0]?.bodyPreview ?? "",
+      temporaryStatus: application.emails[0]?.classification ?? "unclassified",
+      matchedPhrases: application.emails[0]?.matchedJobRules ?? "",
+      filterReason: application.emails[0]?.classificationReason ?? ""
     }))
   );
 }

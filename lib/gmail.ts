@@ -4,6 +4,7 @@ export type GmailMessageSummary = {
   gmailMessageId: string;
   threadId: string;
   fromEmail: string;
+  fromName: string;
   subject: string;
   snippet: string;
   bodyText: string;
@@ -46,7 +47,7 @@ export async function searchRecentJobMessages(gmail: gmail_v1.Gmail) {
   const response = await gmail.users.messages.list({
     userId: "me",
     q: gmailSearchQuery,
-    maxResults: 25
+    maxResults: 200
   });
 
   return response.data.messages ?? [];
@@ -73,6 +74,12 @@ function parseReceivedAt(message: gmail_v1.Schema$Message) {
   const parsedDate = new Date(dateHeader);
 
   return Number.isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+}
+
+function parseSenderName(fromHeader: string) {
+  const nameMatch = fromHeader.match(/^"?([^"<]+?)"?\s*</);
+
+  return nameMatch?.[1]?.trim() ?? "";
 }
 
 function decodeBase64Url(data: string) {
@@ -162,11 +169,13 @@ export async function fetchMessageSummary(
   });
   const message = response.data;
   const bodyText = extractEmailBody(message.payload);
+  const fromEmail = getHeaderValue(message, "from");
 
   return {
     gmailMessageId: message.id ?? messageId,
     threadId: message.threadId ?? "",
-    fromEmail: getHeaderValue(message, "from"),
+    fromEmail,
+    fromName: parseSenderName(fromEmail),
     subject: getHeaderValue(message, "subject"),
     snippet: message.snippet ?? "",
     bodyText,

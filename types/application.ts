@@ -1,5 +1,9 @@
 export type ApplicationStatus = "rejected" | "needs_action" | "waiting";
 export type EmailClassification = ApplicationStatus | "other";
+export type ClassificationSource =
+  | "job_filter"
+  | "rules"
+  | "ai_placeholder";
 
 export type JobEmail = {
   id: string;
@@ -8,12 +12,19 @@ export type JobEmail = {
   gmailMessageId: string;
   threadId: string;
   fromEmail: string;
+  fromName?: string | null;
   subject: string;
   snippet: string;
   bodyPreview?: string | null;
   receivedAt: string;
   classification: EmailClassification;
+  classificationSource?: ClassificationSource | null;
   classificationReason?: string | null;
+  matchedPhrase?: string | null;
+  matchedJobRules?: string | null;
+  matchedStatusRule?: string | null;
+  jobRelatedScore?: number | null;
+  confidenceScore?: number | null;
   createdAt: string;
   updatedAt?: string;
 };
@@ -23,6 +34,8 @@ export type JobApplication = {
   userId?: string;
   company: string;
   role: string;
+  companySource?: string | null;
+  roleSource?: string | null;
   status: ApplicationStatus;
   lastEmailDate: string;
   confidenceScore?: number;
@@ -42,6 +55,12 @@ export type TodoItem = {
 };
 
 export type DashboardApplication = JobApplication & {
+  sender?: string;
+  subject?: string;
   emailSnippet: string;
-  todo: string;
+  bodyPreview?: string;
+  temporaryStatus?: string;
+  matchedPhrases?: string;
+  filterReason?: string;
+  todo?: string;
 };

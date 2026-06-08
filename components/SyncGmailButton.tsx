@@ -4,10 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type SyncResult = {
-  syncedMessages: number;
-  applicationsChanged: number;
-  ignoredMessages: number;
-  todosCreated: number;
+  totalFetched: number;
+  savedJobApplicationEmails: number;
+  skippedEmails: number;
 };
 
 export function SyncGmailButton() {
@@ -33,7 +32,7 @@ export function SyncGmailButton() {
 
       const syncResult = result as SyncResult;
       setMessage(
-        `Synced ${syncResult.syncedMessages} emails, updated ${syncResult.applicationsChanged} applications, ignored ${syncResult.ignoredMessages} emails, created ${syncResult.todosCreated} todos.`
+        `Fetched ${syncResult.totalFetched} emails, saved ${syncResult.savedJobApplicationEmails} job application emails, skipped ${syncResult.skippedEmails}.`
       );
       router.refresh();
     } catch (syncError) {

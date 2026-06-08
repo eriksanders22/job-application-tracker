@@ -16,34 +16,57 @@ export function ApplicationTable({
     <section className="table-section">
       <h2>Applications</h2>
       <p className="section-note">
-        Applications are loaded from PostgreSQL through the local applications
-        API route.
+        This simplified view shows Gmail emails that matched basic job
+        application phrases. Status is temporary until classification is added
+        back deliberately.
       </p>
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>Company</th>
-              <th>Role</th>
+              <th>Subject</th>
+              <th>Sender</th>
+              <th>Received</th>
+              <th>Preview</th>
               <th>Status</th>
-              <th>Last Email Date</th>
-              <th>Email Snippet</th>
-              <th>Todo</th>
+              <th>Filter Debug</th>
             </tr>
           </thead>
           <tbody>
             {applications.map((application) => (
-              <tr key={`${application.company}-${application.role}`}>
-                <td>{application.company}</td>
-                <td>{application.role}</td>
+              <tr key={application.id}>
                 <td>
-                  <span className={`status status-${application.status}`}>
-                    {statusLabels[application.status]}
+                  <strong>{application.subject ?? application.role}</strong>
+                </td>
+                <td>{application.sender}</td>
+                <td>{application.lastEmailDate}</td>
+                <td>
+                  {application.emailSnippet ||
+                    application.bodyPreview ||
+                    "No preview available."}
+                </td>
+                <td>
+                  <span
+                    className={`status status-${
+                      application.temporaryStatus ?? application.status
+                    }`}
+                  >
+                    {application.temporaryStatus ??
+                      statusLabels[application.status]}
                   </span>
                 </td>
-                <td>{application.lastEmailDate}</td>
-                <td>{application.emailSnippet}</td>
-                <td>{application.todo}</td>
+                <td>
+                  {application.matchedPhrases ? (
+                    <span className="debug-line">
+                      Matched: {application.matchedPhrases}
+                    </span>
+                  ) : null}
+                  {application.filterReason ? (
+                    <span className="debug-line">
+                      Reason: {application.filterReason}
+                    </span>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>

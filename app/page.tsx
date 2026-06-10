@@ -62,6 +62,10 @@ export default async function DashboardPage() {
     {
       label: statusLabels.waiting,
       count: countApplicationsByStatus(applications, "waiting")
+    },
+    {
+      label: statusLabels.unclassified,
+      count: countApplicationsByStatus(applications, "unclassified")
     }
   ];
 

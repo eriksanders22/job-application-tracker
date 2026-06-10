@@ -39,11 +39,16 @@ export async function GET() {
       role: application.role,
       status: application.status,
       lastEmailDate: application.lastEmailDate.toISOString().slice(0, 10),
+      confidenceScore: application.confidenceScore,
+      classificationReason: application.classificationReason,
+      classificationSource: application.classificationSource,
+      actionItem: application.actionItem,
+      dueDate: application.dueDate?.toISOString() ?? null,
+      classifiedAt: application.classifiedAt?.toISOString() ?? null,
       sender: application.emails[0]?.fromEmail ?? "",
-      subject: application.emails[0]?.subject ?? application.role,
+      subject: application.emails[0]?.subject ?? application.role ?? "",
       emailSnippet: application.emails[0]?.snippet ?? "",
       bodyPreview: application.emails[0]?.bodyPreview ?? "",
-      temporaryStatus: application.emails[0]?.classification ?? "unclassified",
       matchedPhrases: application.emails[0]?.matchedJobRules ?? "",
       filterReason: application.emails[0]?.classificationReason ?? ""
     }))

@@ -1,9 +1,25 @@
-export type ApplicationStatus = "rejected" | "needs_action" | "waiting";
+export type ApplicationStatus =
+  | "rejected"
+  | "needs_action"
+  | "waiting"
+  | "unclassified";
 export type EmailClassification = ApplicationStatus | "other";
 export type ClassificationSource =
   | "job_filter"
   | "rules"
-  | "ai_placeholder";
+  | "ai_placeholder"
+  | "simple_phrase_filter"
+  | "gemini";
+
+export type JobEmailClassificationResult = {
+  status: ApplicationStatus;
+  company: string | null;
+  role: string | null;
+  actionItem: string | null;
+  dueDate: string | null;
+  confidence: number;
+  reason: string;
+};
 
 export type JobEmail = {
   id: string;
@@ -15,6 +31,7 @@ export type JobEmail = {
   fromName?: string | null;
   subject: string;
   snippet: string;
+  bodyText?: string | null;
   bodyPreview?: string | null;
   receivedAt: string;
   classification: EmailClassification;
@@ -32,13 +49,18 @@ export type JobEmail = {
 export type JobApplication = {
   id: string;
   userId?: string;
-  company: string;
-  role: string;
+  company?: string | null;
+  role?: string | null;
   companySource?: string | null;
   roleSource?: string | null;
   status: ApplicationStatus;
   lastEmailDate: string;
-  confidenceScore?: number;
+  confidenceScore?: number | null;
+  classificationReason?: string | null;
+  classificationSource?: ClassificationSource | null;
+  actionItem?: string | null;
+  dueDate?: string | null;
+  classifiedAt?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -62,5 +84,8 @@ export type DashboardApplication = JobApplication & {
   temporaryStatus?: string;
   matchedPhrases?: string;
   filterReason?: string;
+  classificationReason?: string | null;
+  actionItem?: string | null;
+  dueDate?: string | null;
   todo?: string;
 };

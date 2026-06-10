@@ -78,13 +78,18 @@ model GmailConnection {
 model JobApplication {
   id              String     @id @default(cuid())
   userId          String
-  company         String
-  role            String
+  company         String?
+  role            String?
   companySource   String?
   roleSource      String?
-  status          String
+  status          String     @default("unclassified")
   lastEmailDate   DateTime
-  confidenceScore Float
+  confidenceScore Float?
+  classificationReason String?
+  classificationSource String? @default("gemini")
+  actionItem      String?
+  dueDate         DateTime?
+  classifiedAt    DateTime?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
   user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -102,8 +107,10 @@ model JobEmail {
   gmailMessageId String         @unique
   threadId      String
   fromEmail     String
+  fromName      String?
   subject       String
   snippet       String
+  bodyText      String?         @db.Text
   bodyPreview   String?
   receivedAt    DateTime
   classification String

@@ -6,7 +6,8 @@ import type {
 export const statusLabels: Record<ApplicationStatus, string> = {
   needs_action: "Needs Action",
   rejected: "Rejected",
-  waiting: "Waiting"
+  waiting: "Waiting",
+  unclassified: "Unclassified"
 };
 
 export function countApplicationsByStatus(

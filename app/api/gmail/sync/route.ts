@@ -82,7 +82,7 @@ export async function POST() {
       where: { id: `gmail-${message.gmailMessageId}` },
       update: {
         role: message.subject || "Unknown Role",
-        status: "waiting",
+        status: "unclassified",
         lastEmailDate: message.receivedAt,
         confidenceScore: 0
       },
@@ -91,7 +91,7 @@ export async function POST() {
         userId: user.id,
         company: "Unknown Company",
         role: message.subject || "Unknown Role",
-        status: "waiting",
+        status: "unclassified",
         lastEmailDate: message.receivedAt,
         confidenceScore: 0
       }
@@ -102,8 +102,10 @@ export async function POST() {
       update: {
         applicationId: application.id,
         fromEmail: message.fromEmail,
+        fromName: message.fromName,
         subject: message.subject,
         snippet: message.snippet,
+        bodyText: message.bodyText,
         bodyPreview: message.bodyPreview,
         receivedAt: message.receivedAt,
         classification: "unclassified",
@@ -131,8 +133,10 @@ export async function POST() {
         gmailMessageId: message.gmailMessageId,
         threadId: message.threadId,
         fromEmail: message.fromEmail,
+        fromName: message.fromName,
         subject: message.subject,
         snippet: message.snippet,
+        bodyText: message.bodyText,
         bodyPreview: message.bodyPreview,
         receivedAt: message.receivedAt,
         classification: "unclassified",

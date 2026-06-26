@@ -10,8 +10,15 @@ export type ClassificationSource =
   | "ai_placeholder"
   | "simple_phrase_filter"
   | "gemini";
+export type JobEmailType =
+  | "application_anchor"
+  | "process_update"
+  | "non_job"
+  | "needs_review";
 
 export type JobEmailClassificationResult = {
+  emailType: JobEmailType;
+  isApplicationAnchor: boolean;
   status: ApplicationStatus;
   company: string | null;
   role: string | null;
@@ -24,9 +31,9 @@ export type JobEmailClassificationResult = {
 export type JobEmail = {
   id: string;
   userId: string;
-  applicationId?: string | null;
+  jobApplicationId?: string | null;
   gmailMessageId: string;
-  threadId: string;
+  gmailThreadId: string;
   fromEmail: string;
   fromName?: string | null;
   subject: string;
@@ -37,6 +44,12 @@ export type JobEmail = {
   classification: EmailClassification;
   classificationSource?: ClassificationSource | null;
   classificationReason?: string | null;
+  emailType?: JobEmailType | null;
+  isApplicationAnchor?: boolean;
+  matchStatus?: "attached" | "needs_review" | "skipped" | "ignored";
+  matchReason?: string | null;
+  needsReviewReason?: string | null;
+  suggestedJobApplicationId?: string | null;
   matchedPhrase?: string | null;
   matchedJobRules?: string | null;
   matchedStatusRule?: string | null;
@@ -49,12 +62,19 @@ export type JobEmail = {
 export type JobApplication = {
   id: string;
   userId?: string;
+  gmailThreadId?: string | null;
   company?: string | null;
   role?: string | null;
+  normalizedCompany?: string | null;
+  normalizedRole?: string | null;
   companySource?: string | null;
   roleSource?: string | null;
   status: ApplicationStatus;
+  stage?: string;
+  isActive?: boolean;
   lastEmailDate: string;
+  latestEmailAt?: string | null;
+  latestSubject?: string | null;
   confidenceScore?: number | null;
   classificationReason?: string | null;
   classificationSource?: ClassificationSource | null;
@@ -87,5 +107,14 @@ export type DashboardApplication = JobApplication & {
   classificationReason?: string | null;
   actionItem?: string | null;
   dueDate?: string | null;
+  relatedEmailCount?: number;
+  relatedEmails?: {
+    id: string;
+    subject: string;
+    sender: string;
+    receivedAt: string;
+    classification: EmailClassification;
+    classificationReason?: string | null;
+  }[];
   todo?: string;
 };

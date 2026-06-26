@@ -23,7 +23,10 @@ export async function GET() {
     include: {
       emails: {
         orderBy: { receivedAt: "desc" },
-        take: 1
+        take: 10
+      },
+      _count: {
+        select: { emails: true }
       },
       todos: {
         orderBy: { createdAt: "asc" },
@@ -35,10 +38,17 @@ export async function GET() {
   return NextResponse.json(
     applications.map((application) => ({
       id: application.id,
+      gmailThreadId: application.gmailThreadId,
       company: application.company,
       role: application.role,
+      normalizedCompany: application.normalizedCompany,
+      normalizedRole: application.normalizedRole,
       status: application.status,
+      stage: application.stage,
+      isActive: application.isActive,
       lastEmailDate: application.lastEmailDate.toISOString().slice(0, 10),
+      latestEmailAt: application.latestEmailAt?.toISOString() ?? null,
+      latestSubject: application.latestSubject,
       confidenceScore: application.confidenceScore,
       classificationReason: application.classificationReason,
       classificationSource: application.classificationSource,
@@ -50,7 +60,16 @@ export async function GET() {
       emailSnippet: application.emails[0]?.snippet ?? "",
       bodyPreview: application.emails[0]?.bodyPreview ?? "",
       matchedPhrases: application.emails[0]?.matchedJobRules ?? "",
-      filterReason: application.emails[0]?.classificationReason ?? ""
+      filterReason: application.emails[0]?.classificationReason ?? "",
+      relatedEmailCount: application._count.emails,
+      relatedEmails: application.emails.map((email) => ({
+        id: email.id,
+        subject: email.subject,
+        sender: email.fromEmail,
+        receivedAt: email.receivedAt.toISOString(),
+        classification: email.classification,
+        classificationReason: email.classificationReason
+      }))
     }))
   );
 }

@@ -1,4 +1,8 @@
 import { PrismaClient } from "@prisma/client";
+import {
+  normalizeCompany,
+  normalizeRole
+} from "../lib/application-normalization";
 
 const prisma = new PrismaClient();
 
@@ -125,15 +129,25 @@ async function main() {
       update: {
         status: seed.status,
         lastEmailDate: seed.lastEmailDate,
+        latestEmailAt: seed.lastEmailDate,
+        latestSubject: seed.subject,
+        normalizedCompany: normalizeCompany(seed.company),
+        normalizedRole: normalizeRole(seed.role),
         confidenceScore: seed.confidenceScore
       },
       create: {
         id: seed.id,
         userId: user.id,
+        gmailThreadId: seed.threadId,
         company: seed.company,
         role: seed.role,
+        normalizedCompany: normalizeCompany(seed.company),
+        normalizedRole: normalizeRole(seed.role),
         status: seed.status,
+        isActive: seed.status !== "rejected",
         lastEmailDate: seed.lastEmailDate,
+        latestEmailAt: seed.lastEmailDate,
+        latestSubject: seed.subject,
         confidenceScore: seed.confidenceScore
       }
     });
@@ -141,16 +155,17 @@ async function main() {
     await prisma.jobEmail.upsert({
       where: { gmailMessageId: seed.gmailMessageId },
       update: {
-        applicationId: application.id,
+        jobApplicationId: application.id,
+        gmailThreadId: seed.threadId,
         classification: seed.status,
         snippet: seed.snippet,
         receivedAt: seed.lastEmailDate
       },
       create: {
         userId: user.id,
-        applicationId: application.id,
+        jobApplicationId: application.id,
         gmailMessageId: seed.gmailMessageId,
-        threadId: seed.threadId,
+        gmailThreadId: seed.threadId,
         fromEmail: seed.fromEmail,
         subject: seed.subject,
         snippet: seed.snippet,

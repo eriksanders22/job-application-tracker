@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import type {
   ApplicationStatus,
+  JobEmailType,
   JobEmailClassificationResult
 } from "../types/application";
 
@@ -18,10 +19,27 @@ const allowedStatuses = new Set<ApplicationStatus>([
   "rejected",
   "unclassified"
 ]);
+const allowedEmailTypes = new Set<JobEmailType>([
+  "application_anchor",
+  "process_update",
+  "non_job",
+  "needs_review"
+]);
 
 const responseSchema = {
   type: Type.OBJECT,
   properties: {
+    emailType: {
+      type: Type.STRING,
+      format: "enum",
+      enum: [
+        "application_anchor",
+        "process_update",
+        "non_job",
+        "needs_review"
+      ]
+    },
+    isApplicationAnchor: { type: Type.BOOLEAN },
     status: {
       type: Type.STRING,
       format: "enum",
@@ -35,6 +53,8 @@ const responseSchema = {
     reason: { type: Type.STRING }
   },
   required: [
+    "emailType",
+    "isApplicationAnchor",
     "status",
     "company",
     "role",
@@ -44,6 +64,8 @@ const responseSchema = {
     "reason"
   ],
   propertyOrdering: [
+    "emailType",
+    "isApplicationAnchor",
     "status",
     "company",
     "role",
@@ -78,6 +100,8 @@ function normalizeDueDate(value: unknown) {
 
 function unclassifiedResult(reason: string): JobEmailClassificationResult {
   return {
+    emailType: "needs_review",
+    isApplicationAnchor: false,
     status: "unclassified",
     company: null,
     role: null,
@@ -119,6 +143,15 @@ function validateClassification(
     allowedStatuses.has(parsedResponse.status as ApplicationStatus)
       ? (parsedResponse.status as ApplicationStatus)
       : "unclassified";
+  const emailType =
+    typeof parsedResponse.emailType === "string" &&
+    allowedEmailTypes.has(parsedResponse.emailType as JobEmailType)
+      ? (parsedResponse.emailType as JobEmailType)
+      : "needs_review";
+  const isApplicationAnchor =
+    typeof parsedResponse.isApplicationAnchor === "boolean"
+      ? parsedResponse.isApplicationAnchor
+      : emailType === "application_anchor";
 
   const confidence =
     typeof parsedResponse.confidence === "number" &&
@@ -133,15 +166,23 @@ function validateClassification(
     !allowedStatuses.has(parsedResponse.status as ApplicationStatus)
   ) {
     return {
-      ...unclassifiedResult(
+      status: "unclassified",
+      emailType,
+      isApplicationAnchor,
+      company: toNullableString(parsedResponse.company),
+      role: toNullableString(parsedResponse.role),
+      actionItem: toNullableString(parsedResponse.actionItem),
+      dueDate: normalizeDueDate(parsedResponse.dueDate),
+      confidence,
+      reason:
         toNullableString(parsedResponse.reason) ??
-          "Gemini could not confidently classify this email."
-      ),
-      confidence
+        "Gemini could not confidently classify this email."
     };
   }
 
   return {
+    emailType,
+    isApplicationAnchor,
     status,
     company: toNullableString(parsedResponse.company),
     role: toNullableString(parsedResponse.role),
@@ -165,7 +206,22 @@ function buildPrompt(input: ClassifyJobEmailInput) {
 
   return `You are classifying emails from a job application tracker.
 
-Classify this job application email into exactly one status:
+Classify this job application email into exactly one emailType and one status.
+
+emailType:
+application_anchor:
+The email clearly confirms the candidate submitted, completed, or has a received application for a specific role.
+
+process_update:
+The email is part of an existing job process, such as interview scheduling, rescheduling, rejection, offer, assessment, reminder, recruiter follow-up, calendar invite, cancellation, background check, or miscellaneous hiring conversation.
+
+non_job:
+The email is not related to a specific job application process.
+
+needs_review:
+The email appears job-related, but it is unclear whether it anchors a real application or belongs to an existing process.
+
+status:
 waiting, needs_action, rejected, or unclassified.
 
 Definitions:
@@ -183,6 +239,8 @@ The email is job-related but there is not enough information to confidently clas
 
 Extract:
 
+* emailType
+* isApplicationAnchor
 * status
 * company
 * role
@@ -194,6 +252,8 @@ Extract:
 Rules:
 
 * Do not invent missing information.
+* Set isApplicationAnchor true only when the email clearly confirms a submitted/completed/received application.
+* Do not set isApplicationAnchor true for interview invites, scheduling, cancellations, rejections, offers, recruiter replies, or assessments unless the email also clearly confirms the original application submission.
 * If company is unclear, return null.
 * If role is unclear, return null.
 * If no action is required, actionItem should be null.
@@ -203,6 +263,8 @@ Rules:
 
 Expected JSON shape:
 {
+"emailType": "application_anchor",
+"isApplicationAnchor": true,
 "status": "waiting",
 "company": "string or null",
 "role": "string or null",

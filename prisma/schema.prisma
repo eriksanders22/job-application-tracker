@@ -8,13 +8,13 @@ datasource db {
 }
 
 model User {
-  id               String           @id @default(cuid())
+  id               String            @id @default(cuid())
   name             String?
-  email            String?          @unique
+  email            String?           @unique
   emailVerified    DateTime?
   image            String?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   accounts         Account[]
   sessions         Session[]
   gmailConnections GmailConnection[]
@@ -76,58 +76,75 @@ model GmailConnection {
 }
 
 model JobApplication {
-  id              String     @id @default(cuid())
-  userId          String
-  company         String?
-  role            String?
-  companySource   String?
-  roleSource      String?
-  status          String     @default("unclassified")
-  lastEmailDate   DateTime
-  confidenceScore Float?
+  id                   String     @id @default(cuid())
+  userId               String
+  gmailThreadId        String?
+  company              String?
+  role                 String?
+  normalizedCompany    String?
+  normalizedRole       String?
+  companySource        String?
+  roleSource           String?
+  status               String     @default("unclassified")
+  stage                String     @default("unknown")
+  isActive             Boolean    @default(true)
+  lastEmailDate        DateTime
+  latestEmailAt        DateTime?
+  latestSubject        String?
+  confidenceScore      Float?
   classificationReason String?
-  classificationSource String? @default("gemini")
-  actionItem      String?
-  dueDate         DateTime?
-  classifiedAt    DateTime?
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  emails          JobEmail[]
-  todos           Todo[]
+  classificationSource String?    @default("gemini")
+  actionItem           String?
+  dueDate              DateTime?
+  classifiedAt         DateTime?
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @updatedAt
+  user                 User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emails               JobEmail[]
+  todos                Todo[]
 
+  @@unique([userId, gmailThreadId])
   @@index([userId])
+  @@index([userId, normalizedCompany, normalizedRole])
   @@index([status])
 }
 
 model JobEmail {
-  id            String          @id @default(cuid())
-  userId        String
-  applicationId String?
-  gmailMessageId String         @unique
-  threadId      String
-  fromEmail     String
-  fromName      String?
-  subject       String
-  snippet       String
-  bodyText      String?         @db.Text
-  bodyPreview   String?
-  receivedAt    DateTime
-  classification String
+  id                   String          @id @default(cuid())
+  userId               String
+  jobApplicationId     String?
+  gmailMessageId       String          @unique
+  gmailThreadId        String
+  fromEmail            String
+  fromName             String?
+  subject              String
+  snippet              String
+  bodyText             String?         @db.Text
+  bodyPreview          String?
+  receivedAt           DateTime
+  classification       String
   classificationSource String?
   classificationReason String?
-  matchedPhrase String?
-  matchedJobRules String?
-  matchedStatusRule String?
-  jobRelatedScore Float?
-  confidenceScore Float?
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @default(now()) @updatedAt
-  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  application   JobApplication? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  emailType            String?
+  isApplicationAnchor  Boolean         @default(false)
+  matchStatus          String          @default("attached")
+  matchReason          String?
+  needsReviewReason    String?
+  suggestedJobApplicationId String?
+  matchedPhrase        String?
+  matchedJobRules      String?
+  matchedStatusRule    String?
+  jobRelatedScore      Float?
+  confidenceScore      Float?
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @default(now()) @updatedAt
+  user                 User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  application          JobApplication? @relation(fields: [jobApplicationId], references: [id], onDelete: SetNull)
 
   @@index([userId])
-  @@index([applicationId])
+  @@index([jobApplicationId])
+  @@index([gmailThreadId])
+  @@index([matchStatus])
 }
 
 model Todo {

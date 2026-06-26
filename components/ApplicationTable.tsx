@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { Fragment } from "react";
 import { useEffect, useState } from "react";
 import type {
   ApplicationStatus,
@@ -20,6 +21,7 @@ export function ApplicationTable({
   const [rows, setRows] = useState(applications);
   const [classifyingId, setClassifyingId] = useState<string | null>(null);
   const [errorById, setErrorById] = useState<Record<string, string>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   useEffect(() => {
     setRows(applications);
@@ -46,9 +48,13 @@ export function ApplicationTable({
       }
 
       setRows((currentRows) =>
-        currentRows.map((row) =>
-          row.id === applicationId ? { ...row, ...result } : row
-        )
+        currentRows
+          .filter((row) => row.id !== applicationId || result.id === row.id)
+          .map((row) =>
+            row.id === result.id || row.id === applicationId
+              ? { ...row, ...result }
+              : row
+          )
       );
       router.refresh();
     } catch (classifyError) {
@@ -68,9 +74,8 @@ export function ApplicationTable({
     <section className="table-section">
       <h2>Applications</h2>
       <p className="section-note">
-        This simplified view shows Gmail emails that matched basic job
-        application phrases. Use Classify on saved unclassified rows to ask
-        Gemini for a status.
+        This view shows one application lifecycle per Gmail thread. Related
+        messages stay attached as email history.
       </p>
       <div className="table-wrap">
         <table>
@@ -79,6 +84,7 @@ export function ApplicationTable({
               <th>Subject</th>
               <th>Sender</th>
               <th>Received</th>
+              <th>Emails</th>
               <th>Preview</th>
               <th>Status</th>
               <th>Filter Debug</th>
@@ -87,73 +93,109 @@ export function ApplicationTable({
           </thead>
           <tbody>
             {rows.map((application) => (
-              <tr key={application.id}>
-                <td>
-                  <strong>{application.subject ?? application.role}</strong>
-                </td>
-                <td>{application.sender}</td>
-                <td>{application.lastEmailDate}</td>
-                <td>
-                  {application.emailSnippet ||
-                    application.bodyPreview ||
-                    "No preview available."}
-                </td>
-                <td>
-                  <span className={`status status-${application.status}`}>
-                    {statusLabels[application.status]}
-                  </span>
-                  {application.classificationReason ? (
-                    <span className="debug-line">
-                      AI: {application.classificationReason}
-                    </span>
-                  ) : null}
-                  {application.actionItem ? (
-                    <span className="debug-line">
-                      Action: {application.actionItem}
-                    </span>
-                  ) : null}
-                  {application.dueDate ? (
-                    <span className="debug-line">
-                      Due: {application.dueDate.slice(0, 10)}
-                    </span>
-                  ) : null}
-                </td>
-                <td>
-                  {application.matchedPhrases ? (
-                    <span className="debug-line">
-                      Matched: {application.matchedPhrases}
-                    </span>
-                  ) : null}
-                  {application.filterReason ? (
-                    <span className="debug-line">
-                      Reason: {application.filterReason}
-                    </span>
-                  ) : null}
-                </td>
-                <td>
-                  {application.status === "unclassified" ? (
+              <Fragment key={application.id}>
+                <tr>
+                  <td>
+                    <strong>{application.subject ?? application.role}</strong>
+                  </td>
+                  <td>{application.sender}</td>
+                  <td>{application.lastEmailDate}</td>
+                  <td>
                     <button
-                      className="classify-button"
-                      disabled={classifyingId === application.id}
-                      onClick={() => classifyApplication(application.id)}
+                      className="history-toggle"
+                      onClick={() =>
+                        setExpandedId((currentId) =>
+                          currentId === application.id ? null : application.id
+                        )
+                      }
                       type="button"
                     >
-                      {classifyingId === application.id
-                        ? "Classifying..."
-                        : "Classify"}
+                      {application.relatedEmailCount ?? 0}
                     </button>
-                  ) : (
-                    <span className="debug-line">
-                      {application.classifiedAt ? "Classified" : ""}
+                  </td>
+                  <td>
+                    {application.emailSnippet ||
+                      application.bodyPreview ||
+                      "No preview available."}
+                  </td>
+                  <td>
+                    <span className={`status status-${application.status}`}>
+                      {statusLabels[application.status]}
                     </span>
-                  )}
-                  {errorById[application.id] ? (
-                    <span className="debug-line sync-error">
-                      {errorById[application.id]}
-                    </span>
-                  ) : null}
-                </td>
-              </tr>
+                    {application.classificationReason ? (
+                      <span className="debug-line">
+                        AI: {application.classificationReason}
+                      </span>
+                    ) : null}
+                    {application.actionItem ? (
+                      <span className="debug-line">
+                        Action: {application.actionItem}
+                      </span>
+                    ) : null}
+                    {application.dueDate ? (
+                      <span className="debug-line">
+                        Due: {application.dueDate.slice(0, 10)}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td>
+                    {application.matchedPhrases ? (
+                      <span className="debug-line">
+                        Matched: {application.matchedPhrases}
+                      </span>
+                    ) : null}
+                    {application.filterReason ? (
+                      <span className="debug-line">
+                        Reason: {application.filterReason}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td>
+                    {application.status === "unclassified" ? (
+                      <button
+                        className="classify-button"
+                        disabled={classifyingId === application.id}
+                        onClick={() => classifyApplication(application.id)}
+                        type="button"
+                      >
+                        {classifyingId === application.id
+                          ? "Classifying..."
+                          : "Classify"}
+                      </button>
+                    ) : (
+                      <span className="debug-line">
+                        {application.classifiedAt ? "Classified" : ""}
+                      </span>
+                    )}
+                    {errorById[application.id] ? (
+                      <span className="debug-line sync-error">
+                        {errorById[application.id]}
+                      </span>
+                    ) : null}
+                  </td>
+                </tr>
+                {expandedId === application.id ? (
+                  <tr className="history-row">
+                    <td colSpan={8}>
+                      <div className="email-history">
+                        {(application.relatedEmails ?? []).map((email) => (
+                          <div className="email-history-item" key={email.id}>
+                            <strong>{email.subject}</strong>
+                            <span>{email.sender}</span>
+                            <span>{email.receivedAt.slice(0, 10)}</span>
+                            <span>
+                              {email.classification}
+                              {email.classificationReason
+                                ? `: ${email.classificationReason}`
+                                : ""}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ) : null}
+              </Fragment>
             ))}
           </tbody>
         </table>

@@ -18,7 +18,7 @@ type GoogleAccountTokens = {
   expires_at: number | null;
 };
 
-const gmailSearchQuery =
+export const gmailSearchQuery =
   'newer_than:90d (application OR interview OR assessment OR "not selected" OR unfortunately OR "next steps" OR "schedule")';
 
 export function createGoogleOAuthClient(account: GoogleAccountTokens) {
@@ -43,14 +43,27 @@ export function createGmailClient(account: GoogleAccountTokens) {
   });
 }
 
-export async function searchRecentJobMessages(gmail: gmail_v1.Gmail) {
+export async function searchGmailMessages(
+  gmail: gmail_v1.Gmail,
+  {
+    query = gmailSearchQuery,
+    maxResults = 10
+  }: {
+    query?: string;
+    maxResults?: number;
+  } = {}
+) {
   const response = await gmail.users.messages.list({
     userId: "me",
-    q: gmailSearchQuery,
-    maxResults: 200
+    q: query,
+    maxResults
   });
 
   return response.data.messages ?? [];
+}
+
+export async function searchRecentJobMessages(gmail: gmail_v1.Gmail) {
+  return searchGmailMessages(gmail);
 }
 
 function getHeaderValue(
@@ -188,6 +201,22 @@ export async function fetchRecentJobMessageSummaries(
   gmail: gmail_v1.Gmail
 ) {
   const messages = await searchRecentJobMessages(gmail);
+
+  return Promise.all(
+    messages
+      .filter((message) => message.id)
+      .map((message) => fetchMessageSummary(gmail, message.id as string))
+  );
+}
+
+export async function fetchGmailMessageSummaries(
+  gmail: gmail_v1.Gmail,
+  options: {
+    query?: string;
+    maxResults?: number;
+  } = {}
+) {
+  const messages = await searchGmailMessages(gmail, options);
 
   return Promise.all(
     messages
